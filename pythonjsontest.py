@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 import requests
-url = "https://robertalberto.com/123.json"
+url = "https://robertalberto.com/cis106/" + "9780062457714"
 res = requests.get(url)
 scone = res.json()
 print(type(scone['docs']))
@@ -9,7 +9,10 @@ for item in lst:
     isbn = item['isbn']
     title = item['title']
     author = item['author_name']
-    lang = item['language']
+    try:
+        lang = item['language']
+    except KeyError:
+        lang = ['Eng']
     genre = item['subject']
     publisher = item['publisher']
     #test onlu

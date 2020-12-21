@@ -1,11 +1,10 @@
 from typing import List, Dict
-import simplejson as json
 from flask import Flask, request, Response, redirect, url_for
 from flask import render_template
 from flaskext.mysql import MySQL
 from pymysql.cursors import DictCursor
 import requests
-
+import re
 app = Flask(__name__)
 mysql = MySQL(cursorclass=DictCursor)
 
@@ -21,12 +20,14 @@ mysql.init_app(app)
 def index():
     return render_template('index.html')
 
+
 @app.route('/login', methods=['POST', 'GET'])
 def login():
     if request.method == 'POST':
         return render_template('user.html')
     else:
         return render_template('login.html')
+
 
 @app.route('/list', methods=['GET'])
 def list():
@@ -50,25 +51,86 @@ def insert():
         return render_template('register.html')
 
 
-@app.route('/user', methods=["POST"])
+@app.route('/user', methods=["GET", "POST"])
 def user():
     return render_template('user.html')
 
-@app.route("/bokksearch", methods="POST")
+
+@app.route("/booksearch", methods=["POST", "GET"])
 def booksearch():
-    isbn = request.form['isbn']
-    url = "https://robertalberto.com/" + isbn
+    try:
+        isbn1 = request.form['isbn']
+        url = "http://openlibrary.org/search.json?q=" + isbn1
+        res = requests.get(url)
+        scone = res.json()
+        lst = scone['docs']
+        for item in lst:
+            isbn = item['isbn']
+            title = item['title']
+            try:
+                author = item['author_name']
+            except KeyError:
+                author = item['Anonymous']
+            try:
+                lang = item['language']
+            except KeyError:
+                lang = ['Eng']
+            try:
+                genre = item['subject']
+            except KeyError:
+                genre = ['Undefined']
+            publisher = item['publisher']
+
+        return render_template('list2.html', isbn=isbn[0], title=title, author=author[0], lang=lang[0],
+                                   genre=genre[0],
+                                   publisher=publisher[0])
+    except:
+        return render_template('booknotfound.html')
+
+
+@app.route('/list2redirect', methods=["POST", 'GET'])
+def list2redirect():
+    return render_template('user.html')
+
+
+@app.route('/bookadd', methods=['POST', 'GET'])
+def bookadd():
+    isbn2 = request.form['addbookisbn']
+    url = "http://openlibrary.org/search.json?q=" + isbn2
     res = requests.get(url)
     scone = res.json()
     lst = scone['docs']
     for item in lst:
         isbn = item['isbn']
         title = item['title']
-        author = item['author_name']
-        lang = item['language']
-        genre = item['subject']
+        try:
+            author = item['author_name']
+        except KeyError:
+            author = item['Anonymous']
+        try:
+            lang = item['language']
+        except KeyError:
+            lang = ['Eng']
+        try:
+            genre = item['subject']
+        except KeyError:
+            genre = ['Undefined']
         publisher = item['publisher']
-    return render_template('list.html', isbn=isbn[0], title=title, author=author[0], lang=lang[0], genre=genre[0], publisher=publisher[0])
+
+# validates the input for database eliminating all special chactacters.
+# Example: Harry's will turn into Harrys
+        isbn = re.sub('[^A-Za-z0-9 ]+', '', str(isbn[0]))
+        title = re.sub('[^A-Za-z0-9 ]+', '', str(title))
+        author = re.sub('[^A-Za-z0-9 ]+', '', str(author))
+        lang = re.sub('[^A-Za-z0-9 ]+', '', str(lang[0]))
+        genre = re.sub('[^A-Za-z0-9 ]+', '', str(genre[0]))
+        publisher = re.sub('[^A-Za-z0-9 ]+', '', str(publisher[0]))
+
+        cursor = mysql.get_db().cursor()
+        cursor.execute("""INSERT INTO books (isbn,title,author,lang,genre,publisher) VALUES (%s,%s,%s,%s,%s,%s)""",
+                       (isbn, title, author, lang, genre, publisher))
+        mysql.get_db().commit()
+        return render_template('user.html')
 
 
 if __name__ == "__main__":
