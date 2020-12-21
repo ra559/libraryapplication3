@@ -4,6 +4,7 @@ from flask import Flask, request, Response, redirect, url_for
 from flask import render_template
 from flaskext.mysql import MySQL
 from pymysql.cursors import DictCursor
+import requests
 
 app = Flask(__name__)
 mysql = MySQL(cursorclass=DictCursor)
@@ -52,6 +53,22 @@ def insert():
 @app.route('/user', methods=["POST"])
 def user():
     return render_template('user.html')
+
+@app.route("/bokksearch", methods="POST")
+def booksearch():
+    isbn = request.form['isbn']
+    url = "https://robertalberto.com/" + isbn
+    res = requests.get(url)
+    scone = res.json()
+    lst = scone['docs']
+    for item in lst:
+        isbn = item['isbn']
+        title = item['title']
+        author = item['author_name']
+        lang = item['language']
+        genre = item['subject']
+        publisher = item['publisher']
+    return render_template('list.html', isbn=isbn[0], title=title, author=author[0], lang=lang[0], genre=genre[0], publisher=publisher[0])
 
 
 if __name__ == "__main__":
